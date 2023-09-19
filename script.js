@@ -9,26 +9,41 @@ const accountName = urlParams.get('account');
 // Replace 'https://mainnet.telos.net' with your actual EOSIO endpoint URL
 const rpc = new JsonRpc('https://mainnet.telos.net');
 
-// Function to fetch data from the EOSIO contract
+// Function to fetch data from the EOSIO contract with pagination support
 async function fetchData() {
     try {
-        // Make a request to the contract's table
-        const response = await rpc.get_table_rows({
-            json: true,
-            code: 'vestng.hypha',
-            scope: 'vestng.hypha',
-            table: 'locks',
-            index_position: 2,
-            key_type: 'name',
-            lower_bound: accountName,
-            upper_bound: accountName,            
-        });
+        const rows = [];
+        let more = true;
+        let nextKey = '';
 
-        return response.rows;
+        while (more) {
+            const response = await rpc.get_table_rows({
+                json: true,
+                code: 'vestng.hypha',
+                scope: 'vestng.hypha',
+                table: 'locks',
+                index_position: 2,
+                key_type: 'name',
+                lower_bound: accountName,
+                upper_bound: accountName,            
+                limit: 100, 
+                next_key: nextKey,
+            });
+
+            if (response.rows.length > 0) {
+                rows.push(...response.rows);
+            }
+
+            more = response.more;
+            nextKey = response.next_key;
+        }
+
+        return rows;
     } catch (error) {
         throw error;
     }
 }
+
 
 // Function to calculate the list of tiers and total amounts
 function calculateTiersAndTotals(data) {
@@ -56,6 +71,31 @@ function calculateTiersAndTotals(data) {
 }
 
 // Function to render the list of tiers and total amounts
+
+// tiersAndTotals data structure: the key is the tier id, has total amount and all 
+// rows that contributed to the total amount
+// tiersAndTotals = {
+//     'launch': {
+//         totalAmount: 4.0, // this is a number type
+//         rows: [
+//             {
+//                 "lock_id": 0,
+//                 "owner": "illumination",
+//                 "tier_id": "launch",
+//                 "amount": "2.00 HYPHA",
+//                 "claimed_amount": "0.00 HYPHA",
+//                 "note": "bdc51c7d17c6a2afcba1e4ff8551c83d10ae340499fe4a362d5133d29f41b9fa"
+//               },{
+//                 "lock_id": 1,
+//                 "owner": "illumination",
+//                 "tier_id": "launch",
+//                 "amount": "2.00 HYPHA",
+//                 "claimed_amount": "0.00 HYPHA",
+//                 "note": "7ff98ed21ca44db421e7633a8d35d8b99d4fb9f9ea928906c5eb4961a2141e8f"
+//               },
+//         ],
+//     }
+// }
 function renderTiersAndTotals(tiersAndTotals) {
     // Get a reference to the HTML element where you want to display the results
     const resultsContainer = document.getElementById('results-container');
@@ -75,7 +115,7 @@ function renderTiersAndTotals(tiersAndTotals) {
         // Display the tier information
         tierSection.innerHTML = `
             <h2>Tier: ${tierId}</h2>
-            <p>Total Amount: ${tierData.totalAmount} HYPHA</p>
+            <p>Total Amount: ${tierData.totalAmount.toFixed(2)} HYPHA</p>
             <ul>
                 ${tierData.rows.map(row => `<li>Lock ID: ${row.lock_id}, Owner: ${row.owner}</li>`).join('')}
             </ul>
