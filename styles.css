@@ -19,3 +19,8 @@ main {
     background-color: white;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
+
+#account-info {
+    font-size: 24px; /* Adjust the font size as needed */
+    /* Add other styles here if desired */
+}
